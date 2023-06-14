@@ -47,6 +47,7 @@ Supported Jetson boards:
 - agxorin
 - igxorin
 - orinnx
+- orinnano
 - xaviernx
 
 The Jetson board config can be found in the `Linux_for_Tegra` directory, i.e. jetson-agx-orin-devkit.conf.

@@ -41,7 +41,7 @@ function usage() {
     printf "Options:\n"
     printf "\t-f <jetson firmware release>      - jetson firmware release version\n"
     printf "\t-n                                - Do not install the sample filesystem\n"
-    printf "\t-p <jetson bsp overlay package>   - path to the jetson bsp overlay package\n"
+    printf "\t-p <jetson bsp overlay package>   - path or url to the jetson bsp overlay package\n"
     printf "\t-s <path to setup script>         - script to perform final tasks as part of image build\n"
     printf "\t                                    i.e. apply_binaries.sh (default: %s)\n" "${DEFAULT_SETUP_SCRIPT}"
     printf "\t-t <image tag>                    - image version tag\n"
@@ -86,10 +86,17 @@ function build_image() {
         SETUP_SCRIPT="tmp/$(basename ${SETUP_SCRIPT})"
     fi
 
-    if [[ -f "${JETSON_BSP_OVERLAY_PACKAGE:-}" ]]; then
-        printf "Copying the jetson overlay bsp package %s to the build directory ...\n" "$(basename ${JETSON_BSP_OVERLAY_PACKAGE})"
+    if [[ -n "${JETSON_BSP_OVERLAY_PACKAGE:-}" ]]; then
         mkdir -p "$(dirname $0)/tmp"
-        cp --verbose "${JETSON_BSP_OVERLAY_PACKAGE}" "$(dirname $0)/tmp/"
+
+        if [[ "${JETSON_BSP_OVERLAY_PACKAGE}" =~ "^(https?)://" ]]; then
+            printf "Downloading the jetson overlay bsp package %s to the build directory ...\n" "$(basename ${JETSON_BSP_OVERLAY_PACKAGE})"
+            curl --location --progress-bar --output "$(dirname $0)/tmp/$(basename ${JETSON_BSP_OVERLAY_PACKAGE})" "${JETSON_BSP_OVERLAY_PACKAGE}"
+        elif [[ -f "${JETSON_BSP_OVERLAY_PACKAGE}" ]]; then
+            printf "Copying the jetson overlay bsp package %s to the build directory ...\n" "$(basename ${JETSON_BSP_OVERLAY_PACKAGE})"
+            cp --verbose "${JETSON_BSP_OVERLAY_PACKAGE}" "$(dirname $0)/tmp/"
+        fi
+
         JETSON_BSP_OVERLAY_PACKAGE="tmp/$(basename ${JETSON_BSP_OVERLAY_PACKAGE})"
         PODMAN_BUILD_ARGS+=(
             --build-arg JETSON_BSP_OVERLAY="${JETSON_BSP_OVERLAY_PACKAGE}"
@@ -110,7 +117,7 @@ function build_image() {
 
 function install_files() {
     printf "Installing %s run script ...\n" ${IMAGE_NAME}
-    install --mode=0755 files/jetson-l4t.sh "${USER_BIN_PATH}/jetson-l4t"
+    install -D --mode=0755 files/jetson-l4t.sh "${USER_BIN_PATH}/jetson-l4t"
 }
 
 function remove_image() {

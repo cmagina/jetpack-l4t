@@ -9,6 +9,7 @@ JETSON_ARRAY=(
     agxorin
     igxorin
     orinnx
+    orinnano
     xaviernx
 )
 
@@ -66,6 +67,12 @@ function flash() {
         ;;
     orinnx)
         JETSON_RECOVERY_DEVICE="ID 0955:7323 NVIDIA Corp."
+
+        printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
+        read -p "Press Enter to continue or Ctrl+C to quit"
+        ;;
+    orinnano)
+        JETSON_RECOVERY_DEVICE="ID 0955:7523 NVIDIA Corp."
 
         printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
         read -p "Press Enter to continue or Ctrl+C to quit"

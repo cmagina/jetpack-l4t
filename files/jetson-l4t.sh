@@ -13,6 +13,7 @@ JETSON_ARRAY=(
     agxorin
     igxorin
     orinnx
+    orinnano
     xaviernx
 )
 
@@ -30,7 +31,6 @@ PODMAN_RUN_ARGS=(
     --interactive
     --tty
     --rm
-    --cap-add=all
     --privileged
     --name ${IMAGE_NAME}
     --volume /dev:/dev

@@ -21,9 +21,9 @@ RUN echo JETSON_FIRMWARE_RELEASE=${JETSON_FIRMWARE_RELEASE} > /nvidia-jetson/bui
 
 ARG JETSON_DRIVER_BSP_URI=https://developer.nvidia.com/downloads/embedded/l4t/r35_release_v3.1/release/jetson_linux_r35.3.1_aarch64.tbz2
 ARG JETSON_DRIVER_BSP=jetson_linux_r35.3.1_aarch64.tbz2
-RUN printf "Downloading ${JETSON_DRIVER_BSP} ...\n"; \
+RUN printf "Downloading %s ...\n" ${JETSON_DRIVER_BSP}; \
     curl --location --progress-bar --output /tmp/${JETSON_DRIVER_BSP} ${JETSON_DRIVER_BSP_URI}; \
-    printf "Extracting ${JETSON_DRIVER_BSP} ...\n"; \
+    printf "Extracting %s ...\n" ${JETSON_DRIVER_BSP}; \
     tar --extract --file=/tmp/${JETSON_DRIVER_BSP} --directory=/nvidia-jetson; \
     printf "Cleaning up ...\n"; \
     rm --force /tmp/${JETSON_DRIVER_BSP}; \
@@ -33,9 +33,9 @@ ARG INSTALL_JETSON_SAMPLE_FS
 ARG JETSON_SAMPLE_FS_URI=https://developer.nvidia.com/downloads/embedded/l4t/r35_release_v3.1/release/tegra_linux_sample-root-filesystem_r35.3.1_aarch64.tbz2
 ARG JETSON_SAMPLE_FS=tegra_linux_sample-root-filesystem_r35.3.1_aarch64.tbz2
 RUN if [ "${INSTALL_JETSON_SAMPLE_FS:-yes}" = "yes" ]; then \
-    printf "Downloading ${JETSON_SAMPLE_FS} ...\n"; \
+    printf "Downloading %s ...\n" ${JETSON_SAMPLE_FS}; \
     curl --location --progress-bar --output /tmp/${JETSON_SAMPLE_FS} ${JETSON_SAMPLE_FS_URI}; \
-    printf "Extracting ${JETSON_SAMPLE_FS} ...\n"; \
+    printf "Extracting %s ...\n" ${JETSON_SAMPLE_FS}; \
     tar --extract --file=/tmp/${JETSON_SAMPLE_FS} --directory=/nvidia-jetson/Linux_for_Tegra/rootfs; \
     printf "Cleaning up ...\n"; \
     rm --force /tmp/${JETSON_SAMPLE_FS}; \
@@ -45,7 +45,7 @@ RUN if [ "${INSTALL_JETSON_SAMPLE_FS:-yes}" = "yes" ]; then \
 ARG JETSON_BSP_OVERLAY
 COPY ${JETSON_BSP_OVERLAY} /tmp/${JETSON_BSP_OVERLAY}
 RUN if [ -n "${JETSON_BSP_OVERLAY:-}" ]; then \
-    printf "Extracting ${JETSON_BSP_OVERLAY} ...\n"; \
+    printf "Extracting %s ...\n" ${JETSON_BSP_OVERLAY}; \
     tar --extract --file=/tmp/${JETSON_BSP_OVERLAY} --directory=/nvidia-jetson; \
     printf "Cleaning up ...\n"; \
     rm --force /tmp/${JETSON_BSP_OVERLAY}; \
