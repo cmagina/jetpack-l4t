@@ -5,6 +5,9 @@ set -o nounset  # abort on unbound variable
 set -o pipefail # don't hide errors within pipes
 # set -o xtrace   # display expanded commands and arguments
 
+DEFAULT_JETSON_ROOTDEV=external
+DEFAULT_JETSON_TARGET_BOARD=concord
+
 JETSON_ARRAY=(
     agxorin
     igxorin
@@ -22,9 +25,10 @@ function usage() {
     printf "Options:\n"
     printf "\t-b <jetson board config>          - jetson board config to flash\n"
     printf "\t-d <rootdev>                      - root device to flash (default %s)\n" ${DEFAULT_JETSON_ROOTDEV}
-    printf "\t-j <jetson>                       - jetson to flash\n"
+    printf "\t-t <jetson target board>          - boardctl target board (default %s)\n" ${DEFAULT_JETSON_TARGET_BOARD}
     printf "Commands:\n"
     printf "\tflash                             - flashes the jetson using the firmware built into the container\n"
+    printf "\tmanifest                          - print the build manifest\n"
     printf "\tpower_on                          - Uses boardctl to power on the jetson\n"
     printf "\tpower_off                         - Uses boardctl to power off the jetson\n"
     printf "\trecovery                          - Uses boardctl to put the jetson into recovery mode\n"
@@ -33,80 +37,15 @@ function usage() {
 }
 
 function boardctl() {
-    case ${JETSON_BOARD:-} in
-    agxorin)
-        JETSON_TARGET_BOARD=concord
-        ;;
-    *)
-        printf "Unsupported board: %s\n" ${JETSON_BOARD:-Unspecified}
-        exit 1
-        ;;
-    esac
-
-    ./tools/board_automation/boardctl -t ${JETSON_TARGET_BOARD} $1
-}
-
-function check_for_jetson_recovery_device() {
-    lsusb | grep --quiet "${JETSON_RECOVERY_DEVICE}"
-    echo $?
+    ./tools/board_automation/boardctl -t ${JETSON_TARGET_BOARD:-${DEFAULT_JETSON_TARGET_BOARD}} $1
 }
 
 function flash() {
-    case ${JETSON_BOARD} in
-    agxorin)
-        JETSON_RECOVERY_DEVICE="ID 0955:7023 NVIDIA Corp."
-
-        printf "Putting the jetson %s into recovery ...\n" ${JETSON_BOARD}
-        boardctl recovery
-        ;;
-    igxorin)
-        JETSON_RECOVERY_DEVICE="ID 0955:7023 NVIDIA Corp."
-
-        printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-        ;;
-    orinnx)
-        JETSON_RECOVERY_DEVICE="ID 0955:7323 NVIDIA Corp."
-
-        printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-        ;;
-    orinnano)
-        JETSON_RECOVERY_DEVICE="ID 0955:7523 NVIDIA Corp."
-
-        printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-        ;;
-    xaviernx)
-        JETSON_RECOVERY_DEVICE="ID 0955:7e19 NVIDIA Corp."
-
-        printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-        ;;
-    *)
-        printf "Unsupported jetson board: %s\n" ${JETSON_BOARD}
-        exit 1
-        ;;
-    esac
-
-    printf "Checking if the jetson %s is in recovery ...\n" ${JETSON_BOARD}
-    STATUS=$(check_for_jetson_recovery_device)
-    if [[ ${STATUS} -ne 0 ]]; then
-        printf "Put the jetson %s into recovery mode ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-
-        STATUS=$(check_for_jetson_recovery_device)
-        if [[ ${STATUS} -ne 0 ]]; then
-            printf "Jetson recovery mode device (%s) not found, exiting.\n" "${JETSON_RECOVERY_DEVICE}"
-            exit 1
-        fi
-    fi
-
     printf "Flashing the jetson ...\n"
-    sudo ./flash.sh ${JETSON_BOARD_CONFIG} ${JETSON_ROOTDEV}
+    sudo ./flash.sh ${JETSON_BOARD_CONFIG} ${JETSON_ROOTDEV:-${DEFAULT_JETSON_ROOTDEV}}
 }
 
-while getopts ":vhb:c:d:j:" opt; do
+while getopts ":vhb:c:d:t:" opt; do
     case "${opt}" in
     b)
         JETSON_BOARD_CONFIG=${OPTARG}
@@ -117,8 +56,8 @@ while getopts ":vhb:c:d:j:" opt; do
     d)
         JETSON_ROOTDEV=${OPTARG}
         ;;
-    j)
-        JETSON_BOARD=${OPTARG}
+    t)
+        JETSON_TARGET_BOARD=${OPTARG}
         ;;
     v)
         set -o xtrace
@@ -131,10 +70,14 @@ while getopts ":vhb:c:d:j:" opt; do
 done
 shift $((OPTIND - 1))
 
-pushd /nvidia-jetson/Linux_for_Tegra &>/dev/null
+pushd ${WORKDIR}/Linux_for_Tegra &>/dev/null
 case ${COMMAND:-} in
 flash)
     flash
+    exit $?
+    ;;
+manifest)
+    cat ${WORKDIR}/build.manifest
     exit $?
     ;;
 power_on | power_off | recovery | reset | status)
