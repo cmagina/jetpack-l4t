@@ -50,6 +50,7 @@ function usage() {
     printf "\t-h                                - usage\n"
     printf "Commands:\n"
     printf "\tflash                             - flash the jetson and cleanup\n"
+    printf "\tlist                              - list available image tags\n"
     printf "\tmanifest                          - print the image build manifest\n"
     printf "\tpower_on                          - power on the jetson\n"
     printf "\tpower_off                         - power off the jetson\n"
@@ -68,6 +69,11 @@ function usage() {
 }
 
 function run() {
+    if [[ -z "${IMAGE_TAG:-}" ]]; then
+        printf "Need to specify the image tag.\n"
+        exit 1
+    fi
+
     sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${@:-} ${COMMAND_ARGS[@]:-}
 }
 
@@ -190,14 +196,13 @@ if [[ -n "${JETSON_BOARD:-}" ]]; then
     COMMAND_ARGS=("-j ${JETSON_BOARD}")
 fi
 
-if [[ -z "${IMAGE_TAG:-}" ]]; then
-    printf "Need to specify the image tag.\n"
-    exit 1
-fi
-
 case ${COMMAND:-} in
 flash)
     flash
+    exit $?
+    ;;
+list)
+    sudo podman images --noheading --format "table {{.Tag}}" --filter reference=${IMAGE_NAME}
     exit $?
     ;;
 manifest)
@@ -225,7 +230,7 @@ status)
     exit $?
     ;;
 shell)
-    printf "Opening a shell in %s:%s ...\n" ${IMAGE_NAME} ${IMAGE_TAG}
+    printf "Opening a shell in %s ...\n" ${IMAGE_NAME}
     run
     exit $?
     ;;

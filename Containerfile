@@ -36,7 +36,7 @@ FROM ${IMAGE} as setup-bsp
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C
 
-ARG SOFTWARE_DEPS_LIST="iproute2 sudo usbutils"
+ARG SOFTWARE_DEPS_LIST="iproute2 perl sudo usbutils"
 RUN printf "Updating the package cache ...\n"; \
     apt-get --yes update; \
     printf "Upgrading the image ...\n"; \

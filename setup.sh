@@ -174,7 +174,7 @@ function install_files() {
 
 function remove_image() {
     printf "Removing the %s:%s image ...\n" ${IMAGE_NAME} ${IMAGE_TAG}
-    podman ${PODMAN_ARGS[@]:-} rmi --force ${IMAGE_NAME}:${IMAGE_TAG}
+    sudo podman ${PODMAN_ARGS[@]:-} rmi --force ${IMAGE_NAME}:${IMAGE_TAG}
 }
 
 function remove_files() {
