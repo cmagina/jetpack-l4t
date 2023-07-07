@@ -36,7 +36,7 @@ FROM ${IMAGE} as setup-bsp
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C
 
-ARG SOFTWARE_DEPS_LIST="iproute2 perl sudo usbutils"
+ARG SOFTWARE_DEPS_LIST="iproute2 perl sudo tzdata usbutils"
 RUN printf "Updating the package cache ...\n"; \
     apt-get --yes update; \
     printf "Upgrading the image ...\n"; \
@@ -52,13 +52,18 @@ WORKDIR ${WORKDIR}
 COPY --from=install-bsp /bsp-files ${WORKDIR}
 
 WORKDIR ${WORKDIR}/Linux_for_Tegra
-RUN ./tools/l4t_flash_prerequisites.sh
+RUN printf "Installing the l4t flash prerequisites ...\n"; \
+    ./tools/l4t_flash_prerequisites.sh; \
+    printf "Cleaning up ...\n"; \
+    rm --recursive --force /var/lib/apt/lists/*
 
 ARG SETUP_SCRIPT=files/bsp-setup.sh
 COPY --chmod=0750 ${SETUP_SCRIPT} /tmp/bsp-setup.sh
 RUN if [ -n "${SETUP_SCRIPT}" ]; then \
-    /tmp/bsp-setup.sh && \
-    rm --force /tmp/bsp-setup.sh; \
+    printf "Running the bsp-setup script ...\n"; \
+    /tmp/bsp-setup.sh; \
+    printf "Cleaning up ...\n"; \
+    rm --recursive --force /tmp/bsp-setup.sh /var/lib/apt/lists/*; \
     fi
 
 COPY --chmod=0750 files/entrypoint.sh /entrypoint.sh
