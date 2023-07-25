@@ -92,11 +92,28 @@ Supported Jetson boards:
 
 The Jetson board config can be found in the `Linux_for_Tegra` directory,
 i.e. jetson-agx-orin-devkit.conf. Drop the `.conf` file extension when
-specifying which config flash should use. The flash root device can be
-specified with `-d <rootdev, i.e. external>`.
+specifying which config flash should use.
 
 ```
-jetson-l4t -t <container version tag> -j <jetson board> -c flash -b <jetson board config> -d <rootdev>
+jetson-l4t -c flash -t <container version tag> -j <jetson board> -b <jetson board config>
+```
+
+
+The flash root device can be specified with `-d <rootdev, i.e. external>`.
+
+```
+jetson-l4t -c flash -t <container version tag> -j <jetson board> -b <jetson board config> -d <rootdev>
+```
+
+The jetson-l4t checks for the NVIDIA USB device ID associated with the
+recovery device for the specified Jetson board before calling flash. If
+the board being flashed uses a different device ID then expected, one can
+be passed to the jetson-l4t script using `-i <usb device id, i.e. 7023>.`
+The `-j <jetson board>` argument is not required if passing the usb recovery
+device id.
+
+```
+jetson-l4t -c flash -t <container version tag> -i <usb device id> -b <jetson board config>
 ```
 
 ## Running a board control command

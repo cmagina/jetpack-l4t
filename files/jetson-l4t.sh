@@ -44,7 +44,7 @@ function usage() {
     printf "Options:\n"
     printf "\t-b <jetson board config>          - jetson board config to flash\n"
     printf "\t-d <rootdev>                      - root device to flash (default %s)\n" ${DEFAULT_JETSON_ROOTDEV}
-    printf "\t-i <USB ID>                       - flash serial usb device ID (i.e. 0955:7023)\n"
+    printf "\t-i <USB ID>                       - flash serial usb device ID (i.e. 7023)\n"
     printf "\t-j <jetson>                       - jetson to flash\n"
     printf "\t-v                                - verbose\n"
     printf "\t-h                                - usage\n"
@@ -69,76 +69,85 @@ function usage() {
 }
 
 function run() {
+    local run_args="${@:-}"
+
     if [[ -z "${IMAGE_TAG:-}" ]]; then
         printf "Need to specify the image tag.\n"
         exit 1
     fi
 
-    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${@:-} ${COMMAND_ARGS[@]:-}
+    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${run_args:-} ${COMMAND_ARGS[@]:-}
 }
 
-function check_for_jetson_recovery_device() {
-    JETSON_RECOVERY_DEVICE="$1"
-    lsusb | grep --quiet "${JETSON_RECOVERY_DEVICE}"
+function check_for_nvidia_usb_device_id() {
+    local jetson_recovery_device_id="$1"
+    lsusb | grep --quiet "ID 0955:${jetson_recovery_device_id} NVIDIA Corp."
     echo $?
 }
 
 function flash() {
+    if [[ -z "${JETSON_BOARD_CONFIG:-}" ]]; then
+        printf "Need to specify a jetson board config, i.e. -b jetson-agx-orin-devkit.\n"
+        exit 1
+    fi
+
     if [[ -z "${JETSON_RECOVERY_DEVICE_ID:-}" ]]; then
+        if [[ -z "${JETSON_BOARD:-}" ]]; then
+            printf "Need to specify a jetson board, i.e. -j agxorin.\n"
+            exit 1
+        fi
+
         case ${JETSON_BOARD} in
         agxorin)
-            JETSON_RECOVERY_DEVICE_ID="7023"
-
-            printf "Putting the jetson %s into recovery ...\n" ${JETSON_BOARD}
-            run -c recovery
+            local jetson_recovery_device_id="7023"
+            local jetson_serial_device_id="7045"
             ;;
         igxorin)
-            JETSON_RECOVERY_DEVICE_ID="7023"
-
-            printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-            read -p "Press Enter to continue or Ctrl+C to quit"
+            local jetson_recovery_device_id="7023"
             ;;
         orinnx)
-            JETSON_RECOVERY_DEVICE_ID="7323"
-
-            printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-            read -p "Press Enter to continue or Ctrl+C to quit"
+            local jetson_recovery_device_id="7323"
             ;;
         orinnano)
-            JETSON_RECOVERY_DEVICE_ID="7523"
-
-            printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-            read -p "Press Enter to continue or Ctrl+C to quit"
+            local jetson_recovery_device_id="7523"
             ;;
         xaviernx)
-            JETSON_RECOVERY_DEVICE_ID="7e19"
-
-            printf "Put the jetson %s into recovery ...\n" ${JETSON_BOARD}
-            read -p "Press Enter to continue or Ctrl+C to quit"
+            local jetson_recovery_device_id="7e19"
             ;;
         *)
             printf "Unsupported jetson board: %s\n" ${JETSON_BOARD}
             exit 1
             ;;
         esac
+    else
+        local jetson_recovery_device_id="${JETSON_RECOVERY_DEVICE_ID}"
     fi
 
-    printf "Checking if the jetson %s is in recovery ...\n" ${JETSON_BOARD}
-    STATUS=$(check_for_jetson_recovery_device "ID 0955:${JETSON_RECOVERY_DEVICE_ID} NVIDIA Corp.")
-    if [[ ${STATUS} -ne 0 ]]; then
-        printf "Put the jetson %s into recovery mode ...\n" ${JETSON_BOARD}
-        read -p "Press Enter to continue or Ctrl+C to quit"
-
-        STATUS=$(check_for_jetson_recovery_device "ID 0955:${JETSON_RECOVERY_DEVICE_ID} NVIDIA Corp.")
-        if [[ ${STATUS} -ne 0 ]]; then
-            printf "Jetson recovery mode device (%s) not found, exiting.\n" "${JETSON_RECOVERY_DEVICE}"
-            exit 1
+    if [[ -n "${jetson_serial_device_id:-}" ]]; then
+        printf "Checking for the jetson usb serial device id '%s' ...\n" "ID 0955:${jetson_serial_device_id} NVIDIA Corp."
+        local serial_status=$(check_for_nvidia_usb_device_id "${jetson_serial_device_id}")
+        if [[ ${serial_status} -ne 0 ]]; then
+            printf "Could not find the jetson usb serial device id '%s', put the board into recovery manually ...\n" "ID 0955:${jetson_serial_device_id} NVIDIA Corp."
+            read -p "Press Enter to continue or Ctrl+C to quit"
+        else
+            printf "Putting the jetson into recovery ...\n"
+            run -c recovery
         fi
     fi
 
-    if [[ -z "${JETSON_BOARD_CONFIG:-}" ]]; then
-        printf "Need to specify a jetson board config, i.e. -b jetson-agx-orin-devkit.\n"
-        exit 1
+    printf "Checking for the jetson usb recovery device id '%s' ...\n" "ID 0955:${jetson_recovery_device_id} NVIDIA Corp."
+    local recovery_status=$(check_for_nvidia_usb_device_id "${jetson_recovery_device_id}")
+    if [[ ${recovery_status} -ne 0 ]]; then
+        printf "Jetson recovery mode usb device '%s' not found, try putting the jetson into recovery mode ...\n" "ID 0955:${jetson_recovery_device_id} NVIDIA Corp."
+        read -p "Press Enter to continue or Ctrl+C to quit"
+
+        printf "Checking for the jetson usb recovery device id '%s' ...\n" "ID 0955:${jetson_recovery_device_id} NVIDIA Corp."
+        recovery_status=$(check_for_nvidia_usb_device_id "${jetson_recovery_device_id}")
+        if [[ ${recovery_status} -ne 0 ]]; then
+            printf "\nERROR: Jetson recovery mode usb device '%s' not found, exiting.\n" "ID 0955:${jetson_recovery_device_id} NVIDIA Corp."
+            printf "Check that the jetson recovery port is connected to this host using a usb cable that supports data before trying again.\n"
+            exit 1
+        fi
     fi
 
     run -c flash -b ${JETSON_BOARD_CONFIG} -d ${ROOTDEV:-$DEFAULT_JETSON_ROOTDEV}
@@ -149,7 +158,7 @@ if [[ $# -le 0 ]]; then
     exit
 fi
 
-while getopts ":vhb:c:d:f:j:nr:s:t:" opt; do
+while getopts ":b:c:d:f:i:j:nr:s:t:vh" opt; do
     case "${opt}" in
     b)
         JETSON_BOARD_CONFIG=${OPTARG}
@@ -191,10 +200,6 @@ while getopts ":vhb:c:d:f:j:nr:s:t:" opt; do
     esac
 done
 shift $((OPTIND - 1))
-
-if [[ -n "${JETSON_BOARD:-}" ]]; then
-    COMMAND_ARGS=("-j ${JETSON_BOARD}")
-fi
 
 case ${COMMAND:-} in
 flash)
