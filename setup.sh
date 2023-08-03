@@ -89,7 +89,7 @@ function get_file() {
     if [[ ! -f "${FILE_URI}" ]]; then
         printf "Downloading the file %s to the %s directory ...\n" "${FILENAME}" ${IMAGE_TAG}
         curl --location --progress-bar --continue-at - --output "$(dirname $0)/${IMAGE_TAG}/${FILENAME}" "${FILE_URI}"
-    else
+    elif [[ "${FILE_URI}" != "$(dirname $0)/${IMAGE_TAG}/${FILENAME}" ]]; then
         printf "Copying the file %s to the %s directory ...\n" "${FILENAME}" ${IMAGE_TAG}
         cp --verbose "${FILE_URI}" "$(dirname $0)/${IMAGE_TAG}/${FILENAME}"
     fi
