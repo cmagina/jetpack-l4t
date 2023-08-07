@@ -11,6 +11,17 @@ ARG BSP_DOWNLOADS
 
 COPY ${BSP_DOWNLOADS}/* /tmp/
 
+
+ARG INSTALL_SOFTWARE_DEPS_LIST="lbzip2"
+RUN printf "Updating the package cache ...\n"; \
+    apt-get --yes update; \
+    printf "Upgrading the image ...\n"; \
+    apt-get --yes upgrade; \
+    printf "Installing software ...\n"; \
+    apt-get --yes install ${INSTALL_SOFTWARE_DEPS_LIST}; \
+    printf "Cleaning up ...\n"; \
+    rm --recursive --force /var/lib/apt/lists/*
+
 RUN mkdir -p /bsp-files; \
     echo JETSON_FIRMWARE_RELEASE=${JETSON_FIRMWARE_RELEASE} > /bsp-files/build.manifest; \
     printf "Extracting %s to %s ...\n" ${JETSON_DRIVER_BSP} /bsp-files; \
@@ -36,13 +47,13 @@ FROM ${IMAGE} as setup-bsp
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_ALL=C
 
-ARG SOFTWARE_DEPS_LIST="iproute2 perl sudo tzdata usbutils"
+ARG SETUP_SOFTWARE_DEPS_LIST="iproute2 perl qemu-user-static sudo tzdata usbutils"
 RUN printf "Updating the package cache ...\n"; \
     apt-get --yes update; \
     printf "Upgrading the image ...\n"; \
     apt-get --yes upgrade; \
     printf "Installing software ...\n"; \
-    apt-get --yes install ${SOFTWARE_DEPS_LIST}; \
+    apt-get --yes install ${SETUP_SOFTWARE_DEPS_LIST}; \
     printf "Cleaning up ...\n"; \
     rm --recursive --force /var/lib/apt/lists/*
 
@@ -50,6 +61,11 @@ ENV WORKDIR=/nvidia-jetson
 WORKDIR ${WORKDIR}
 
 COPY --from=install-bsp /bsp-files ${WORKDIR}
+
+# flash.sh expects a python binary in the path
+RUN printf "Creating symlink of /usr/bin/python3 as /usr/local/bin/python ...\n"; \
+    ln --symbolic /usr/bin/python3 /usr/local/bin/python
+
 
 WORKDIR ${WORKDIR}/Linux_for_Tegra
 RUN printf "Installing the l4t flash prerequisites ...\n"; \

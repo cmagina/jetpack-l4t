@@ -9,6 +9,7 @@ set -o pipefail # don't hide errors within pipes
 IMAGE_NAME=jetson-l4t
 DEFAULT_SETUP_SCRIPT="files/bsp-setup.sh"
 USER_BIN_PATH="${HOME}/.local/bin"
+SCRIPT_BASE_DIR="$(dirname $(realpath $0))"
 
 JETSON_FIRMWARE_RELEASE_ARRAY=(
     "35.3.1"
@@ -33,6 +34,11 @@ declare -A JETSON_ROOT_FS_MAP=(
 declare -A JETSON_ROOT_FS_URI_MAP=(
     ["35.3.1"]="https://developer.nvidia.com/downloads/embedded/l4t/r35_release_v3.1/release/tegra_linux_sample-root-filesystem_r35.3.1_aarch64.tbz2"
     ["35.2.1"]="https://developer.nvidia.com/downloads/linux-sample-root-filesystem-r3521aarch64tbz2"
+)
+
+declare -A DEFAULT_UBUNTU_VERSION_MAP=(
+    ["35.3.1"]="20.04"
+    ["35.2.1"]="20.04"
 )
 
 declare -a PODMAN_ARGS
@@ -64,6 +70,7 @@ function usage() {
     printf "\t-c                                - clean up build artifacts\n"
     printf "\t-d <jetson driver bsp>            - path or url to the jetson driver bsp\n"
     printf "\t-f <jetson firmware release>      - jetson firmware release version\n"
+    printf "\t-g <ubuntu os version>            - ubuntu version to base image on (i.e. 20.04)\n"
     printf "\t-n                                - Do not install the sample filesystem\n"
     printf "\t-m <jetson root filesystem>       - path or url to a jetson root filesystem\n"
     printf "\t-p <jetson bsp overlay>           - path or url to the jetson bsp overlay\n"
@@ -88,10 +95,10 @@ function get_file() {
 
     if [[ ! -f "${FILE_URI}" ]]; then
         printf "Downloading the file %s to the %s directory ...\n" "${FILENAME}" ${IMAGE_TAG}
-        curl --location --progress-bar --continue-at - --output "$(dirname $0)/${IMAGE_TAG}/${FILENAME}" "${FILE_URI}"
-    elif [[ "${FILE_URI}" != "$(dirname $0)/${IMAGE_TAG}/${FILENAME}" ]]; then
+        curl --location --progress-bar --continue-at - --output "${SCRIPT_BASE_DIR}/${IMAGE_TAG}/${FILENAME}" "${FILE_URI}"
+    elif [[ "$(realpath ${FILE_URI})" != "${SCRIPT_BASE_DIR}/${IMAGE_TAG}/${FILENAME}" ]]; then
         printf "Copying the file %s to the %s directory ...\n" "${FILENAME}" ${IMAGE_TAG}
-        cp --verbose "${FILE_URI}" "$(dirname $0)/${IMAGE_TAG}/${FILENAME}"
+        cp --verbose "${FILE_URI}" "${SCRIPT_BASE_DIR}/${IMAGE_TAG}/${FILENAME}"
     fi
 }
 
@@ -105,12 +112,13 @@ function build_cleanup() {
 function build_image() {
     printf "Building the %s:%s rootful container with firmware release %s ...\n" ${IMAGE_NAME} ${IMAGE_TAG} ${JETSON_FIRMWARE_RELEASE}
 
-    mkdir -p "$(dirname $0)/${IMAGE_TAG}"
+    mkdir -p "${SCRIPT_BASE_DIR}/${IMAGE_TAG}"
 
     trap build_cleanup EXIT
 
     PODMAN_BUILD_ARGS+=(
         --build-arg BSP_DOWNLOADS="${IMAGE_TAG}/"
+        --build-arg UBUNTU_VERSION="${UBUNTU_VERSION:-${DEFAULT_UBUNTU_VERSION_MAP[${JETSON_FIRMWARE_RELEASE}]}}"
     )
 
     if [[ -f "${SETUP_SCRIPT:-}" ]]; then
@@ -187,7 +195,7 @@ if [[ $# -le 0 ]]; then
     exit
 fi
 
-while getopts ":bcd:f:im:np:rs:t:uvh" opt; do
+while getopts ":bcd:f:g:im:np:rs:t:uvh" opt; do
     case "${opt}" in
     b)
         COMMAND=build
@@ -200,6 +208,9 @@ while getopts ":bcd:f:im:np:rs:t:uvh" opt; do
         ;;
     f)
         JETSON_FIRMWARE_RELEASE="${OPTARG}"
+        ;;
+    g)
+        UBUNTU_VERSION="${OPTARG}"
         ;;
     i)
         INSTALL_FILES="yes"
