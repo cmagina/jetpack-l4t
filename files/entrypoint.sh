@@ -8,14 +8,6 @@ set -o pipefail # don't hide errors within pipes
 DEFAULT_JETSON_ROOTDEV=external
 DEFAULT_JETSON_TARGET_BOARD=concord
 
-JETSON_ARRAY=(
-    agxorin
-    igxorin
-    orinnx
-    orinnano
-    xaviernx
-)
-
 function usage() {
     printf "%s [options] -c <command>\n" $0
     printf "Uses the boardctl tool to perform the power commands.\n"

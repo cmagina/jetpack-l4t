@@ -10,23 +10,28 @@ IMAGE_NAME=jetson-l4t
 DEFAULT_JETSON_ROOTDEV=external
 
 JETSON_ARRAY=(
-    agxorin
-    igxorin
-    orinnx
-    orinnano
-    xaviernx
+    "agxorin"
+    "igxorin"
+    "orinnx"
+    "orinnano"
+    "xaviernx"
 )
 
 JETSON_FIRMWARE_RELEASE_ARRAY=(
-    35.3.1
-    35.2.1
+    "35.4.1"
+    "35.3.1"
+    "35.2.1"
 )
 
-PODMAN_BUILD_ARGS=(
-    --rm
+declare -A JETSON_BOARD_CONFIG_MAP=(
+    ["agxorin"]="jetson-agx-orin-devkit"
+    ["igxorin"]="jetson-igx-orin-devkit"
+    ["orinnx"]="jetson-orin-nx-devkit"
+    ["orinnano"]="jetson-orin-nano-devkit"
+    ["xaviernx"]="jetson-xavier-nx-devkit"
 )
 
-PODMAN_RUN_ARGS=(
+PODMAN_ARGS=(
     --interactive
     --tty
     --rm
@@ -36,11 +41,19 @@ PODMAN_RUN_ARGS=(
     --volume /sys:/sys
 )
 
+function print_arr() {
+    local -n arr=$1
+
+    printf "\t"
+    printf "%s  " ${arr[@]}
+    printf "\n"
+}
+
 function usage() {
-    printf "%s [options] -c <command> -t <image tag>\n" $0
+    printf "%s [options] -c <command> -f <jetson firmware release>\n" $(basename $0)
     printf "Required:\n"
     printf "\t-c <command>                      - command to run\n"
-    printf "\t-t <image tag>                    - image version tag\n"
+    printf "\t-f <jetson firmware release>      - jetson firmware release\n"
     printf "Options:\n"
     printf "\t-b <jetson board config>          - jetson board config to flash\n"
     printf "\t-d <rootdev>                      - root device to flash (default %s)\n" ${DEFAULT_JETSON_ROOTDEV}
@@ -50,33 +63,25 @@ function usage() {
     printf "\t-h                                - usage\n"
     printf "Commands:\n"
     printf "\tflash                             - flash the jetson and cleanup\n"
-    printf "\tlist                              - list available image tags\n"
+    printf "\tlist                              - list available firmware releases\n"
     printf "\tmanifest                          - print the image build manifest\n"
     printf "\tpower_on                          - power on the jetson\n"
     printf "\tpower_off                         - power off the jetson\n"
     printf "\trecovery                          - put the jetson into recovery mode\n"
+    printf "\tremove                            - remove the firmware release\n"
     printf "\treset                             - reset the jetson\n"
     printf "\tstatus                            - get the power status of the jetson\n"
     printf "\tshell                             - drop to a shell inside the container\n"
     printf "Supported Jetsons:\n"
-    printf "\t"
-    printf "%s " ${JETSON_ARRAY[@]}
-    printf "\n"
+    print_arr JETSON_ARRAY
     printf "Supported Jetson Firmware Releases:\n"
-    printf "\t"
-    printf "%s " ${JETSON_FIRMWARE_RELEASE_ARRAY[@]}
-    printf "\n"
+    print_arr JETSON_FIRMWARE_RELEASE_ARRAY
 }
 
 function run() {
     local run_args="${@:-}"
 
-    if [[ -z "${IMAGE_TAG:-}" ]]; then
-        printf "Need to specify the image tag.\n"
-        exit 1
-    fi
-
-    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${run_args:-} ${COMMAND_ARGS[@]:-}
+    sudo podman run ${PODMAN_ARGS[@]} ${IMAGE_NAME}:${JETSON_FIRMWARE_RELEASE} ${run_args:-}
 }
 
 function check_for_nvidia_usb_device_id() {
@@ -86,18 +91,8 @@ function check_for_nvidia_usb_device_id() {
 }
 
 function flash() {
-    if [[ -z "${JETSON_BOARD_CONFIG:-}" ]]; then
-        printf "Need to specify a jetson board config, i.e. -b jetson-agx-orin-devkit.\n"
-        exit 1
-    fi
-
     if [[ -z "${JETSON_RECOVERY_DEVICE_ID:-}" ]]; then
-        if [[ -z "${JETSON_BOARD:-}" ]]; then
-            printf "Need to specify a jetson board, i.e. -j agxorin.\n"
-            exit 1
-        fi
-
-        case ${JETSON_BOARD} in
+        case ${JETSON_BOARD:-} in
         agxorin)
             local jetson_recovery_device_id="7023"
             local jetson_serial_device_id="7045"
@@ -114,13 +109,22 @@ function flash() {
         xaviernx)
             local jetson_recovery_device_id="7e19"
             ;;
-        *)
-            printf "Unsupported jetson board: %s\n" ${JETSON_BOARD}
+        * | "")
+            printf "ERROR: Unsupported or not specified jetson board: %s\n" ${JETSON_BOARD:-}
+            printf "Supported Jetsons:\n"
+            print_arr JETSON_ARRAY
             exit 1
             ;;
         esac
     else
         local jetson_recovery_device_id="${JETSON_RECOVERY_DEVICE_ID}"
+    fi
+
+    if [[ -z "${JETSON_BOARD_CONFIG:-}" && ! "${JETSON_ARRAY[@]}" =~ "${JETSON_BOARD:-}" ]]; then
+        printf "ERROR: Need to specify a jetson board config or a supported jetson board.\n"
+        printf "Supported Jetsons:\n"
+        print_arr JETSON_ARRAY
+        exit 1
     fi
 
     if [[ -n "${jetson_serial_device_id:-}" ]]; then
@@ -150,15 +154,24 @@ function flash() {
         fi
     fi
 
-    run -c flash -b ${JETSON_BOARD_CONFIG} -d ${ROOTDEV:-$DEFAULT_JETSON_ROOTDEV}
+    run -c flash -b ${JETSON_BOARD_CONFIG:-${JETSON_BOARD_CONFIG_MAP[$JETSON_BOARD]}} -d ${ROOTDEV:-$DEFAULT_JETSON_ROOTDEV}
 }
+
+function remove_image() {
+    printf "Removing the %s:%s image ...\n" ${IMAGE_NAME} ${JETSON_FIRMWARE_RELEASE}
+    sudo podman rmi --force ${IMAGE_NAME}:${JETSON_FIRMWARE_RELEASE}
+}
+
+##
+## MAIN
+##
 
 if [[ $# -le 0 ]]; then
     usage
     exit
 fi
 
-while getopts ":b:c:d:f:i:j:nr:s:t:vh" opt; do
+while getopts ":b:c:d:f:i:j:vh" opt; do
     case "${opt}" in
     b)
         JETSON_BOARD_CONFIG=${OPTARG}
@@ -170,25 +183,13 @@ while getopts ":b:c:d:f:i:j:nr:s:t:vh" opt; do
         JETSON_ROOTDEV=${OPTARG}
         ;;
     f)
-        JETSON_BSP_OVERLAY_PACKAGE="${OPTARG}"
+        JETSON_FIRMWARE_RELEASE="${OPTARG}"
         ;;
     i)
         JETSON_RECOVERY_DEVICE_ID=${OPTARG}
         ;;
     j)
         JETSON_BOARD=${OPTARG}
-        ;;
-    n)
-        INSTALL_JETSON_SAMPLE_FS="no"
-        ;;
-    r)
-        JETSON_FIRMWARE_RELEASE=${OPTARG}
-        ;;
-    s)
-        SETUP_SCRIPT="${OPTARG}"
-        ;;
-    t)
-        IMAGE_TAG=${OPTARG}
         ;;
     v)
         set -o xtrace
@@ -200,6 +201,13 @@ while getopts ":b:c:d:f:i:j:nr:s:t:vh" opt; do
     esac
 done
 shift $((OPTIND - 1))
+
+if [[ -z "${JETSON_FIRMWARE_RELEASE:-}" && "${COMMAND:-}" != "list" ]]; then
+    printf "Need to specify the jetson firmware release.\n"
+    printf "All available releases can be listed with:\n"
+    printf "\t%s -c list\n" $0
+    exit 1
+fi
 
 case ${COMMAND:-} in
 flash)
@@ -224,6 +232,10 @@ power_off)
     ;;
 recovery)
     run -c recovery
+    exit $?
+    ;;
+remove)
+    remove_image
     exit $?
     ;;
 reset)
