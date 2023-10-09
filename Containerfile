@@ -3,14 +3,16 @@ ARG IMAGE=docker.io/library/ubuntu:${UBUNTU_VERSION}
 
 FROM ${IMAGE} as install-bsp
 
-ARG JETSON_FIRMWARE_RELEASE
-ARG JETSON_DRIVER_BSP
-ARG JETSON_ROOT_FS
-ARG JETSON_BSP_OVERLAY
+ARG JETPACK_FIRMWARE_RELEASE
+ARG JETPACK_DRIVER_BSP
+ARG JETPACK_ROOT_FS
+ARG JETPACK_BSP_OVERLAY
 ARG BSP_DOWNLOADS
 
 COPY ${BSP_DOWNLOADS}/* /tmp/
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LC_ALL=C
 
 ARG INSTALL_SOFTWARE_DEPS_LIST="lbzip2"
 RUN printf "Updating the package cache ...\n"; \
@@ -23,23 +25,23 @@ RUN printf "Updating the package cache ...\n"; \
     rm --recursive --force /var/lib/apt/lists/*
 
 RUN mkdir -p /bsp-files; \
-    echo JETSON_FIRMWARE_RELEASE=${JETSON_FIRMWARE_RELEASE} > /bsp-files/build.manifest; \
-    printf "Extracting %s to %s ...\n" ${JETSON_DRIVER_BSP} /bsp-files; \
-    tar --extract --file=/tmp/${JETSON_DRIVER_BSP} --directory=/bsp-files; \
-    echo JETSON_DRIVER_BSP=${JETSON_DRIVER_BSP} >> /bsp-files/build.manifest; \
+    echo JETPACK_FIRMWARE_RELEASE=${JETPACK_FIRMWARE_RELEASE} > /bsp-files/build.manifest; \
+    printf "Extracting %s to %s ...\n" ${JETPACK_DRIVER_BSP} /bsp-files; \
+    tar --extract --file=/tmp/${JETPACK_DRIVER_BSP} --directory=/bsp-files; \
+    echo JETPACK_DRIVER_BSP=${JETPACK_DRIVER_BSP} >> /bsp-files/build.manifest; \
     \
-    if [ -f "/tmp/${JETSON_ROOT_FS}" ]; then \
-    printf "Extracting %s to %s/Linux_for_Tegra/rootfs ...\n" ${JETSON_ROOT_FS} /bsp-files; \
-    tar --extract --file=/tmp/${JETSON_ROOT_FS} --directory=/bsp-files/Linux_for_Tegra/rootfs; \
-    echo JETSON_ROOT_FS=${JETSON_ROOT_FS} >> /bsp-files/build.manifest; \
+    if [ -f "/tmp/${JETPACK_ROOT_FS}" ]; then \
+    printf "Extracting %s to %s/Linux_for_Tegra/rootfs ...\n" ${JETPACK_ROOT_FS} /bsp-files; \
+    tar --extract --file=/tmp/${JETPACK_ROOT_FS} --directory=/bsp-files/Linux_for_Tegra/rootfs; \
+    echo JETPACK_ROOT_FS=${JETPACK_ROOT_FS} >> /bsp-files/build.manifest; \
     else \
     printf "Not installing a root filesystem.\n"; \
     fi; \
     \
-    if [ -f "/tmp/${JETSON_BSP_OVERLAY}" ]; then \
-    printf "Extracting %s to %s ...\n" ${JETSON_BSP_OVERLAY} /bsp-files; \
-    tar --extract --file=/tmp/${JETSON_BSP_OVERLAY} --directory=/bsp-files; \
-    echo JETSON_BSP_OVERLAY=${JETSON_BSP_OVERLAY} >> /bsp-files/build.manifest; \
+    if [ -f "/tmp/${JETPACK_BSP_OVERLAY}" ]; then \
+    printf "Extracting %s to %s ...\n" ${JETPACK_BSP_OVERLAY} /bsp-files; \
+    tar --extract --file=/tmp/${JETPACK_BSP_OVERLAY} --directory=/bsp-files; \
+    echo JETPACK_BSP_OVERLAY=${JETPACK_BSP_OVERLAY} >> /bsp-files/build.manifest; \
     fi
 
 FROM ${IMAGE} as setup-bsp
@@ -57,7 +59,7 @@ RUN printf "Updating the package cache ...\n"; \
     printf "Cleaning up ...\n"; \
     rm --recursive --force /var/lib/apt/lists/*
 
-ENV WORKDIR=/nvidia-jetson
+ENV WORKDIR=/nvidia-jetpack
 WORKDIR ${WORKDIR}
 
 COPY --from=install-bsp /bsp-files ${WORKDIR}

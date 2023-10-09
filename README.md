@@ -1,30 +1,34 @@
-# jetson-l4t
+# jetpack-l4t
 
-A rootful container that is setup to run `boardctl` commands or flash a jetson
-using the l4t environment. It requires root access to install and run.
-The scripts expect `podman` to be the container tool used.
+Creates a rootful container image with the specified JetPack firmware loaded.
+It requires root access to install and run. The scripts expect `podman` to be
+the container tool used. The containers can be used to flash a Jetson or IGX
+and run `boardctl` commands.
 
-## Installing the jetson-l4t runtime script
+## Installing jetpack-l4t
 
-A script, `jetson-l4t`, will be installed to `$HOME/.local/bin`. This is the
-script used to flash, run board control commands and drop into a shell.
+The setup.sh script downloads the `jetpack-l4t` gitrepo to
+`$HOME/.local/share/jetpack-l4t` and installs the jetpack-l4t script to
+`$HOME/.local/bin`. This is the script used to build images, flash,
+run board control commands and drop into a shell with in the specified
+firmware image.
 
 ```
 ./setup.sh -i
 ```
 
-## Uninstalling the jetson-l4t runtime script
+## Uninstalling jetpack-l4t
 
 ```
 ./setup.sh -u
 ```
 
-## Building the jetson-l4t container
+## Building the jetpack-l4t container
 
 If the installation for the firmware requires something other then
 `apply_binaries.sh` being run, you need to provide a shell script that runs
 those commands and specify it using `-s /path/to/script.sh`. You can use the
-`files/setup.sh` script as a starting point.
+`files/bsp-setup.sh` script as a starting point.
 
 Firmware releases that are automatically supported:
 
@@ -32,58 +36,66 @@ Firmware releases that are automatically supported:
 - 35.3.1
 - 35.2.1
 
-### Building a jetson-l4t container for a supported firmware release
+### Building a jetpack-l4t image for a supported firmware release
 
 ```
-./setup.sh -b -f <firmware release, i.e. 35.4.1>
+jetpack-l4t -c build -f <firmware release, i.e. 35.4.1>
 ```
 
-### Building a jetson-l4t container for a user provided firmware release
+### Building a jetpack-l4t image for a user provided firmware release
 
-Either download the Jetson Driver package or specify the URL to the
-Jetson Driver package that contains the `Linux_for_Tegra` directory
-and specify the location to the tarfile using `-d /uri/jetson_driver.tarfile`.
+Either download the JetPack Driver package or specify the URL to the
+JetPack Driver package that contains the `Linux_for_Tegra` directory
+and specify the location to the tarfile using `-d /uri/jetpack_driver.tarfile`.
 
 ```
-./setup.sh -b -f <firmware release, i.e. 35.4.1> -d /uri/jetson_driver.tarfile
+jetpack-l4t -c build -f <firmware release, i.e. 35.4.1> -d /uri/jetpack_driver.tarfile
 ```
 
-### Building a jetson-l4t container with a BSP Overlay using a supported firmware release
+### Building a jetpack-l4t image with a BSP Overlay using a supported firmware release
 
 Either download the BSP or specify the URL to the BSP you want to overlay
 ontop of the `Linux_for_Tegra` directory and specify the location to the
-tarfile using `-p /uri/bsp_overlay.tarfile`. This file is extracted over the
+tarfile using `-o /uri/bsp_overlay.tarfile`. This file is extracted over the
 `Linux_for_Tegra` directory.
 
 ```
-./setup.sh -b -f <firmware release, i.e. 35.4.1> -p /uri/bsp_overlay.tarfile
+jetpack-l4t -c build -f <firmware release, i.e. 35.4.1> -o /uri/bsp_overlay.tarfile
 ```
 
-### Building a jetson-l4t container with a BSP Overlay using a user provided firmware release
+### Building a jetpack-l4t image with a user provided root filesystem
 
-Combine the previous two commands:
+Either download the root filesystem package or specify the URL to the
+root filesystem package and specify the location to the tarfile using
+`-m /uri/root_filesystem.tarfile`.
 
 ```
-./setup.sh -b -f <firmware release, i.e. 35.4.1> -d /uri/jetson_driver.tarfile -p /uri/bsp_overlay.tarfile
+jetpack-l4t -c build -f <firmware release, i.e. 35.4.1> -m /uri/root_filesystem.tarfile
 ```
 
 ### Notes
 
-The `-f <firmware release, i.e. 35.4.1>` argument is used as the image tag
-and must be specified for building or removing containers.
+Any of the above commands can be combined as needed.
+
+The `-f <firmware release, i.e. 35.4.1>` argument will be used as the image tag
+if one is not specified or vise versa, the `-t <image tag>` argument will be used
+as the firmware release if one is not specified.
+
+Use the `-t <image tag>` argument to set the `jetpack-l4t` image version to
+something other then the firmware release.
 
 If you do not want to include the Sample filesystem in the `Linux_for_Tegra`
 directory, add the `-n` argument to your build commands. This will also not
 run the `apply_binaries.sh` script. If you specify a setup script using the
 `-s /path/to/script.sh` argument, it will be run even with the `-n` argument.
 
-In order to make the firmware files available to the container build, they
-must be copied to the container build root. If you want this cleaned up after
-the build completes, use the `-c` argument.
+The default base image for the images is Ubuntu 20.04. If a different
+version of Ubuntu is desired, one can be specified with
+`-i <version, i.e. 22.04>`.
 
-## Flashing a Jetson
+## Flashing a Jetson or IGX
 
-Supported Jetson boards:
+Supported Platforms:
 
 - agxorin
 - igxorin
@@ -91,34 +103,38 @@ Supported Jetson boards:
 - orinnano
 - xaviernx
 
-The Jetson board config can be found in the `Linux_for_Tegra` directory,
+The JetPack board config can be found in the `Linux_for_Tegra` directory,
 i.e. jetson-agx-orin-devkit.conf. Drop the `.conf` file extension when
 specifying which config flash should use.
 
 ```
-jetson-l4t -c flash -f <firmware release, i.e. 35.4.1> -j <jetson board> -b <jetson board config>
+jetpack-l4t -c flash -t <image tag> -p <platform> -b <jetpack board config>
 ```
 
-The flash root device can be specified with `-d <rootdev, i.e. external>`.
+The flash root device can be specified with `-r <rootdev, i.e. external>`.
 
 ```
-jetson-l4t -c flash -f <firmware release, i.e. 35.4.1> -j <jetson board> -b <jetson board config> -d <rootdev>
+jetpack-l4t -c flash -t <image tag> -p <platform> -b <jetpack board config> -r <rootdev>
 ```
 
-The jetson-l4t checks for the NVIDIA USB device ID associated with the
-recovery device for the specified Jetson board before calling flash. If
-the board being flashed uses a different device ID then expected, one can
-be passed to the jetson-l4t script using `-i <usb device id, i.e. 7023>.`
-The `-j <jetson board>` argument is not required if passing the usb recovery
+The jetpack-l4t script checks for the NVIDIA USB device ID associated with the
+recovery device for the specified platform before calling flash. If
+the platform being flashed uses a different device ID then expected, one can
+be passed to the jetpack-l4t script using `-u <usb device id, i.e. 7023>.`
+The `-p <platform>` argument is not required if passing the usb recovery
 device id.
 
 ```
-jetson-l4t -c flash -f <firmware release, i.e. 35.4.1> -i <usb device id> -b <jetson board config>
+jetpack-l4t -c flash -t <image tag> -u <usb device id> -b <jetpack board config>
 ```
 
 ## Running a board control command
 
-Board control commands:
+Supported Board Control Platforms:
+
+- agxorin
+
+Board Control Commands:
 
 - power_on
 - power_off
@@ -126,22 +142,20 @@ Board control commands:
 - reset
 - status
 
-The board control commands are currently only supported for the AGX Orin.
-
 ```
-jetson-l4t -f <firmware release, i.e. 35.4.1> -j <jetson board> -c <board control command>
+jetpack-l4t -t <image tag> -p <platform> -c <board control command>
 ```
 
 ## Getting a shell for running manual commands
 
-This will drop you into the specified jetson-l4t container at the `Linux_for_Tegra` directory.
+This will drop you into the specified jetpack-l4t container at the `Linux_for_Tegra` directory.
 
 ```
-jetson-l4t -f <firmware release, i.e. 35.4.1> -c shell
+jetpack-l4t -t <image tag> -c shell
 ```
 
-## Removing a jetson-l4t container
+## Removing a jetpack-l4t container
 
 ```
-jetson-l4t -f <firmware release, i.e. 35.4.1> -c remove
+jetpack-l4t -t <image tag> -c remove
 ```
