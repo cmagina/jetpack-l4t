@@ -8,8 +8,8 @@ declare -A DEFAULT_UBUNTU_VERSION_MAP=(
     ["35.2.1"]="20.04"
 )
 
-declare -a BOARDCTL_PLATFORM_ARRAY=(
-    "agxorin"
+declare -A BOARDCTL_PLATFORM_ARRAY=(
+    ["agxorin"]="topo"
 )
 
 declare -a PLATFORM_ARRAY=(

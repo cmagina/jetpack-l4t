@@ -14,7 +14,13 @@ DEFAULT_ROOTDEV=external
 DEFAULT_SETUP_SCRIPT="files/bsp-setup.sh"
 JETPACK_L4T_PATH="${HOME}/.local/share/jetpack-l4t"
 
-source "${JETPACK_L4T_PATH}/config.sh"
+if [[ -f "${JETPACK_L4T_PATH}/config.sh" ]]; then
+    source "${JETPACK_L4T_PATH}/config.sh"
+else
+    printf "Failed to find the default config file, %s, exiting.\n" "${JETPACK_L4T_PATH}/config.sh"
+    exit 1
+fi
+
 if [[ -f "${HOME}/.config/jetpack-l4t.conf" ]]; then
     source "${HOME}/.config/jetpack-l4t.conf"
 fi
@@ -57,7 +63,7 @@ function usage() {
     printf "Supported Platforms:\n"
     printf "\t%s\n" ${PLATFORM_ARRAY[@]}
     printf "Supported Boardctl Platforms:\n"
-    printf "\t%s\n" ${BOARDCTL_PLATFORM_ARRAY[@]}
+    printf "\t%s\n" ${!BOARDCTL_PLATFORM_ARRAY[@]}
     printf "Supported JetPack Firmware Releases:\n"
     printf "\t%s\n" ${JETPACK_FIRMWARE_RELEASE_ARRAY[@]}
 }
@@ -189,37 +195,39 @@ function build_image() {
 }
 
 function run() {
-    local run_args="${@:-}"
+    local -a run_args=("${@:-}")
 
     if [[ -z "${IMAGE_TAG:-}" ]]; then
-        printf "Need to specify an image tag.\n"
-        printf "i.e. -t <image tag>\n"
+        printf "Need to specify an image\n"
+        printf "\ti.e. -t <image tag>\n"
+        list_images
         exit 1
     fi
 
-    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${run_args:-}
+    if [[ -n "${VERBOSE:-}" ]]; then
+        run_args+=("-v")
+    fi
+
+    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${run_args[@]:-}
 }
 
 function boardctl() {
     local boardctl_cmd=$1
+    local target_board=${2:-}
 
-    case ${PLATFORM:-} in
-    agxorin)
-        local target_board="-t concord"
-        ;;
-    igxorin) ;;
-    orinnx) ;;
-    orinnano) ;;
-    xaviernx) ;;
-    * | "")
-        printf "Unsupported or not specified platform: %s\n" ${PLATFORM:-}
-        printf "Supported Platforms:\n"
-        printf "\t%s\n" ${BOARDCTL_PLATFORM_ARRAY[@]}
+    if [[ -z "${PLATFORM:-}" || ! "${!BOARDCTL_PLATFORM_ARRAY[@]}" =~ "${PLATFORM:-}" ]]; then
+        printf "Unsupported or unspecified board control platform\n"
+        if [[ -n "${PLATFORM:-}" ]]; then
+            printf "\t%s\n" ${PLATFORM}
+        fi
+        printf "Supported Board Control Platforms:\n"
+        printf "\t%s\n" ${!BOARDCTL_PLATFORM_ARRAY[@]}
         exit 1
-        ;;
-    esac
+    fi
 
-    run -c ${boardctl_cmd} ${target_board:-}
+    target_board=${target_board:-${BOARDCTL_PLATFORM_ARRAY[${PLATFORM}]}}
+
+    run -c ${boardctl_cmd} -t ${target_board}
 }
 
 function check_for_nvidia_usb_device_id() {
@@ -230,7 +238,7 @@ function check_for_nvidia_usb_device_id() {
 
 function flash() {
     if [[ -z "${PLATFORM_RECOVERY_DEVICE_ID:-}" ]]; then
-        case ${PLATFORM:-} in
+        case ${PLATFORM} in
         agxorin)
             local platform_recovery_device_id="7023"
             local platform_serial_device_id="7045"
@@ -247,18 +255,12 @@ function flash() {
         xaviernx)
             local platform_recovery_device_id="7e19"
             ;;
-        * | "")
-            printf "Unsupported or not specified platform: %s\n" ${PLATFORM:-}
-            printf "Supported Platforms:\n"
-            printf "\t%s\n" ${PLATFORM_ARRAY[@]}
-            exit 1
-            ;;
         esac
     else
         local platform_recovery_device_id="${PLATFORM_RECOVERY_DEVICE_ID}"
     fi
 
-    if [[ -z "${JETPACK_BOARD_CONFIG:-}" && ! "${PLATFORM_ARRAY[@]}" =~ "${PLATFORM:-}" ]]; then
+    if [[ -z "${JETPACK_BOARD_CONFIG:-}" && ! "${PLATFORM_ARRAY[@]}" =~ "${PLATFORM}" ]]; then
         printf "Need to specify a jetpack board config or a supported jetpack board.\n"
         printf "i.e. -b <jetpack board config>\n"
         printf "Supported Platforms:\n"
@@ -274,7 +276,7 @@ function flash() {
             read -p "Press Enter to continue or Ctrl+C to quit"
         else
             printf "Putting the platform into recovery ...\n"
-            run -c recovery
+            boardctl recovery
         fi
     fi
 
@@ -299,7 +301,7 @@ function flash() {
 function list_images() {
     local jetpack_l4t_images=($(sudo podman images --noheading --format "table {{.Tag}}" --filter reference=${IMAGE_NAME}))
     if [[ -n "${jetpack_l4t_images[@]:-}" ]]; then
-        printf "jetpack-l4t images:\n"
+        printf "Available Images:\n"
         printf "\t%s\n" ${jetpack_l4t_images[@]}
     else
         printf "No images found.\n"
@@ -381,6 +383,16 @@ build)
     exit $?
     ;;
 flash)
+    if [[ -z "${PLATFORM:-}" ]]; then
+        printf "Unsupported or unspecified platform\n"
+        if [[ -n "${PLATFORM:-}" ]]; then
+            printf "\t%s\n" ${PLATFORM}
+        fi
+        printf "Supported Platforms:\n"
+        printf "\t%s\n" ${PLATFORM_ARRAY[@]}
+        exit 1
+    fi
+
     flash
     exit $?
     ;;
@@ -392,28 +404,12 @@ manifest)
     run -c manifest
     exit $?
     ;;
-power_on)
-    boardctl power_on
-    exit $?
-    ;;
-power_off)
-    boardctl power_off
-    exit $?
-    ;;
-recovery)
-    boardctl recovery
+power_on | power_off | recovery | reset | status)
+    boardctl ${COMMAND}
     exit $?
     ;;
 remove)
     remove_image
-    exit $?
-    ;;
-reset)
-    boardctl reset
-    exit $?
-    ;;
-status)
-    boardctl status
     exit $?
     ;;
 shell)

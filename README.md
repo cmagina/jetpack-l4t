@@ -17,6 +17,13 @@ firmware image.
 ./setup.sh -i
 ```
 
+### Config
+
+Inside of the `$HOME/.local/share/jetpack-l4t` install directory, is a
+config file, `$HOME/.local/share/jetpack-l4t/config.sh`. To override or
+extend the config contained in that file, create a new config file with
+the changes at `$HOME/.config/jetpack-l4t.conf`.
+
 ## Uninstalling jetpack-l4t
 
 ```

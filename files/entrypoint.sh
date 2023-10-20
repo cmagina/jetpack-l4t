@@ -6,7 +6,6 @@ set -o pipefail # don't hide errors within pipes
 # set -o xtrace   # display expanded commands and arguments
 
 DEFAULT_ROOTDEV=external
-DEFAULT_TARGET_BOARD=concord
 
 function usage() {
     printf "%s [options] -c <command>\n" $0
@@ -17,6 +16,7 @@ function usage() {
     printf "Commands:\n"
     printf "\tflash                             - flashes the board using the firmware built into the container\n"
     printf "\tmanifest                          - print the build manifest\n"
+    printf "Board Control Commands:\n"
     printf "\tpower_on                          - Uses boardctl to power on the board\n"
     printf "\tpower_off                         - Uses boardctl to power off the board\n"
     printf "\trecovery                          - Uses boardctl to put the board into recovery mode\n"
@@ -26,11 +26,14 @@ function usage() {
     printf "\t-b <jetpack board config>         - jetpack board config to flash\n"
     printf "\t-d <rootdev>                      - root device to flash (default %s)\n" ${DEFAULT_ROOTDEV}
     printf "Boardctl Options:\n"
-    printf "\t-t <target board>                 - boardctl target board (default %s)\n" ${DEFAULT_TARGET_BOARD}
+    printf "\t-t <target board>                 - boardctl target board (required)\n"
 }
 
 function boardctl() {
-    ./tools/board_automation/boardctl -t ${TARGET_BOARD:-${DEFAULT_TARGET_BOARD}} $1
+    local boardctl_command=$1
+    local target_board=$2
+
+    ./tools/board_automation/boardctl -t ${target_board} ${boardctl_command}
 }
 
 function flash() {
@@ -75,7 +78,13 @@ manifest)
     ;;
 power_on | power_off | recovery | reset | status)
     printf "Running the boardctl %s command ...\n" ${COMMAND}
-    boardctl ${COMMAND}
+    if [[ -z "${TARGET_BOARD:-}" ]]; then
+        printf "Need to specify a target board\n"
+        ./tools/board_automation/boardctl ${COMMAND}
+        exit $?
+    fi
+
+    boardctl ${COMMAND} ${TARGET_BOARD}
     exit $?
     ;;
 esac
