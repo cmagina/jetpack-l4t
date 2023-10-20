@@ -23,11 +23,13 @@ function install_files() {
         cd "${USER_DATA_PATH}/jetpack-l4t" && git pull ${VERBOSE:-} origin main
     else
         printf "Downloading jetpack-l4t to %s/jetpack-l4t ...\n" "${USER_DATA_PATH}"
+        install ${VERBOSE:-} --directory "${USER_DATA_PATH}"
         git clone ${VERBOSE:-} "${JETPACK_L4T_GIT_URI}" "${USER_DATA_PATH}/jetpack-l4t"
     fi
 
     printf "Installing the jetpack-l4t.sh run script as %s/jetpack-l4t ...\n" "${USER_BIN_PATH}"
-    chmod 0755 "${USER_DATA_PATH}/jetpack-l4t/jetpack-l4t.sh"
+    chmod ${VERBOSE:-} 0755 "${USER_DATA_PATH}/jetpack-l4t/jetpack-l4t.sh"
+    install ${VERBOSE:-} --directory "${USER_BIN_PATH}"
     ln ${VERBOSE:-} --symbolic "${USER_DATA_PATH}/jetpack-l4t/jetpack-l4t.sh" "${USER_BIN_PATH}/jetpack-l4t"
 }
 
