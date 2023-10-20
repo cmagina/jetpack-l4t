@@ -16,6 +16,7 @@ function usage() {
     printf "Commands:\n"
     printf "\tflash                             - flashes the board using the firmware built into the container\n"
     printf "\tmanifest                          - print the build manifest\n"
+    printf "\tshell                             - drop into a shell\n"
     printf "Board Control Commands:\n"
     printf "\tpower_on                          - Uses boardctl to power on the board\n"
     printf "\tpower_off                         - Uses boardctl to power off the board\n"
@@ -85,6 +86,10 @@ power_on | power_off | recovery | reset | status)
     fi
 
     boardctl ${COMMAND} ${TARGET_BOARD}
+    exit $?
+    ;;
+shell)
+    /bin/bash
     exit $?
     ;;
 esac

@@ -68,7 +68,6 @@ declare -a PODMAN_RUN_ARGS=(
     --interactive
     --tty
     --privileged
-    --name ${IMAGE_NAME}
     --volume /dev:/dev
     --volume /sys:/sys
 )

@@ -195,6 +195,8 @@ function build_image() {
 }
 
 function run() {
+    local run_cmd=${1}
+    shift
     local -a run_args=("${@:-}")
 
     if [[ -z "${IMAGE_TAG:-}" ]]; then
@@ -208,7 +210,7 @@ function run() {
         run_args+=("-v")
     fi
 
-    sudo podman run ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} ${run_args[@]:-}
+    sudo podman run --name ${IMAGE_NAME}-${IMAGE_TAG}-${run_cmd} ${PODMAN_RUN_ARGS[@]} ${IMAGE_NAME}:${IMAGE_TAG} -c ${run_cmd} ${run_args[@]:-}
 }
 
 function boardctl() {
@@ -227,7 +229,7 @@ function boardctl() {
 
     target_board=${target_board:-${BOARDCTL_PLATFORM_ARRAY[${PLATFORM}]}}
 
-    run -c ${boardctl_cmd} -t ${target_board}
+    run ${boardctl_cmd} -t ${target_board}
 }
 
 function check_for_nvidia_usb_device_id() {
@@ -295,7 +297,7 @@ function flash() {
         fi
     fi
 
-    run -c flash -b ${JETPACK_BOARD_CONFIG:-${JETPACK_BOARD_CONFIG_MAP[$PLATFORM_BOARD]}} -d ${ROOTDEV:-$DEFAULT_ROOTDEV}
+    run flash -b ${JETPACK_BOARD_CONFIG:-${JETPACK_BOARD_CONFIG_MAP[$PLATFORM_BOARD]}} -d ${ROOTDEV:-$DEFAULT_ROOTDEV}
 }
 
 function list_images() {
@@ -401,7 +403,7 @@ list)
     exit $?
     ;;
 manifest)
-    run -c manifest
+    run manifest
     exit $?
     ;;
 power_on | power_off | recovery | reset | status)
@@ -414,7 +416,7 @@ remove)
     ;;
 shell)
     printf "Opening a shell in %s ...\n" ${IMAGE_NAME}
-    run
+    run shell
     exit $?
     ;;
 esac
