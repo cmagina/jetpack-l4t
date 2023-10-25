@@ -43,13 +43,15 @@ function usage() {
     printf "\treset                             - reset the board\n"
     printf "\tstatus                            - get the power status of the board\n"
     printf "Options:\n"
-    printf "\t-f <jetpack firmware release>     - jetpack firmware release version\n"
     printf "\t-t <image tag>                    - image version tag\n"
+    printf "\t                                    required by boardctl commands and flash\n"
     printf "\t-v                                - verbose\n"
     printf "\t-h                                - usage\n"
     printf "Build Options:\n"
     printf "\t-d <jetpack driver bsp>           - path or url to the jetpack driver bsp\n"
+    printf "\t-f <jetpack firmware release>     - jetpack firmware release version\n"
     printf "\t-i <ubuntu os version>            - ubuntu version to base image on (i.e. 20.04)\n"
+    printf "\t-k                                - keep build artifacts\n"
     printf "\t-m <jetpack root filesystem>      - path or url to a jetpack root filesystem\n"
     printf "\t-n                                - Do not install the sample filesystem\n"
     printf "\t-o <jetpack bsp overlay>          - path or url to the jetpack bsp overlay\n"
@@ -89,9 +91,9 @@ function get_file() {
 }
 
 function build_cleanup() {
-    if [[ "${CLEANUP_BUILD:-yes}" == "yes" ]]; then
+    if [[ "${KEEP_BUILD_ARTIFACTS:-no}" == "no" && -d "${JETPACK_L4T_PATH}/${IMAGE_TAG}" ]]; then
         printf "Cleaning up the build ...\n"
-        rm ${VERBOSE:-} --force --recursive ${IMAGE_TAG:-?}
+        rm ${VERBOSE:-} --force --recursive "${JETPACK_L4T_PATH}/${IMAGE_TAG}"
     fi
 }
 
@@ -311,6 +313,13 @@ function list_images() {
 }
 
 function remove_image() {
+    if [[ -z "${IMAGE_TAG:-}" ]]; then
+        printf "Need to specify an image\n"
+        printf "\ti.e. -t <image tag>\n"
+        list_images
+        exit 1
+    fi
+
     printf "Removing the %s:%s image ...\n" ${IMAGE_NAME} ${IMAGE_TAG}
     sudo podman rmi --force ${IMAGE_NAME}:${IMAGE_TAG}
 }
@@ -324,7 +333,7 @@ if [[ $# -le 0 ]]; then
     exit
 fi
 
-while getopts ":b:c:d:f:g:i:m:no:p:r:s:t:vh" opt; do
+while getopts ":b:c:d:f:g:i:km:no:p:r:s:t:vh" opt; do
     case "${opt}" in
     b)
         JETPACK_BOARD_CONFIG=${OPTARG}
@@ -340,6 +349,9 @@ while getopts ":b:c:d:f:g:i:m:no:p:r:s:t:vh" opt; do
         ;;
     i)
         UBUNTU_VERSION="${OPTARG}"
+        ;;
+    k)
+        KEEP_BUILD_ARTIFACTS="yes"
         ;;
     m)
         JETPACK_ROOT_FS="${OPTARG}"
@@ -367,7 +379,7 @@ while getopts ":b:c:d:f:g:i:m:no:p:r:s:t:vh" opt; do
         ;;
     v)
         set -o xtrace
-        CLEANUP_BUILD="no"
+        KEEP_BUILD_ARTIFACTS="yes"
         PODMAN_ARGS+=("--log-level=debug")
         VERBOSE="--verbose"
         ;;
@@ -418,6 +430,10 @@ shell)
     printf "Opening a shell in %s ...\n" ${IMAGE_NAME}
     run shell
     exit $?
+    ;;
+*)
+    printf "Unrecognized command: %s\n" ${COMMAND}
+    exit 1
     ;;
 esac
 

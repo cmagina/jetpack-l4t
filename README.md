@@ -100,6 +100,11 @@ The default base image for the images is Ubuntu 20.04. If a different
 version of Ubuntu is desired, one can be specified with
 `-i <version, i.e. 22.04>`.
 
+All firmware, overlay, and filesystem archives are copied to
+`$HOME/.local/share/jetpack-l4t/<image tag>` as they need to be in the
+container build directory. This directory is deleted after the build
+completes. To keep the build artifacts, use the `-k` argument.
+
 ## Flashing a Jetson or IGX
 
 Supported Platforms:
